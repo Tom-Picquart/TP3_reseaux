@@ -12,16 +12,17 @@ int main(){
 	int fd;
 	struct stat sb;
 
-    if ((fd = open("./test_tosfs_files",O_RDWR))==-1){
+    if ((fd = open("./test_tosfs_files",O_RDWR)) == -1){
 		perror("open");
-		exit(1);}
+		exit(EXIT_FAILURE);}
     
-    if (stat("./test_tosfs_files", &sb) == -1) {
-        perror("stat");
+    if (fstat(fd, &sb) == -1) {
+        perror("fstat");
+        close(fd);
         exit(EXIT_FAILURE);
     }
 
-    addr = mmap(NULL, sb.st_size, PROT_READ | PROT_WRITE,MAP_SHARED, fd, 0);
+    addr = mmap(NULL, sb.st_size, PROT_READ | PROT_WRITE,MAP_SHARED, fd, 0); // no offset, the whole document is mapped.
     if (addr == MAP_FAILED){
         perror("mmap");
         close(fd);
@@ -34,8 +35,10 @@ int main(){
  
     printf("\n=== Superbloc ===\n");
     printf("Magic number : 0x%08x\n", superblock->magic);
-    printf("Block bitmap : 0x%08x\n", superblock->block_bitmap);
-    printf("Inode bitmap : 0x%08x\n", superblock->inode_bitmap);
+    printf("Block bitmap : " PRINTF_BINARY_PATTERN_INT32 "\n", 
+        PRINTF_BYTE_TO_BINARY_INT32(superblock->block_bitmap));
+    printf("Inode bitmap : " PRINTF_BINARY_PATTERN_INT32 "\n", 
+        PRINTF_BYTE_TO_BINARY_INT32(superblock->inode_bitmap));
     printf("Block size   : %u bytes\n", superblock->block_size);
     printf("Number of blocks : %u\n", superblock->blocks);
     printf("Number of inodes : %u\n", superblock->inodes);
@@ -43,7 +46,7 @@ int main(){
 
     printf("\n=== Inodes ===\n");
 
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < (int)superblock->inodes + 1 ; i++) {
         struct tosfs_inode *inode = &inodes[i];
 
         if (inode->inode != 0) {
